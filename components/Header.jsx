@@ -31,7 +31,7 @@ const Header = () => {
         {pathName === "/" && (
           <div className="hidden md:flex space-x-6">
             <Link
-              href="/features"
+              href="#features"
               className="text-white font-medium transition-all duration-300 hover:text-cyan-400 cursor-pointer"
             >
               Features
