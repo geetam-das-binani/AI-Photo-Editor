@@ -3,6 +3,7 @@ import { useIntersectionObserver } from "@/app/hooks/use-landing-hooks";
 import { useAuth } from "@clerk/nextjs";
 import { useState } from "react";
 import { Button } from "./ui/button";
+import { toast } from 'sonner';
 const PricingCard = ({
   id,
   plan,
@@ -32,6 +33,7 @@ const PricingCard = ({
       }
     } catch (error) {
       console.error("Checkout error:", error);
+      toast.error("Failed to open checkout", error.message);
     }
   };
 
@@ -103,7 +105,7 @@ const Pricing = () => {
     {
       id: "pro",
       plan: "Pro",
-      price: 12,
+      price: 10,
       features: [
         "Unlimited projects",
         "Unlimited exports",
@@ -113,7 +115,7 @@ const Pricing = () => {
         "AI Retouch, Upscaler and more",
       ],
       featured: true,
-      planId: "cplan_2ywZwXjYQQipWYxjCmFZCgCgsTZ",
+      planId: "cplan_30e1T5ZjOqYEuzHCYRi7TlnIDSH",
       buttonText: "Upgrade to Pro",
     },
   ];
