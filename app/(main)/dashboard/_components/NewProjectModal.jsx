@@ -60,7 +60,7 @@ const NewProjectModal = ({ isOpen, onClose = () => {} }) => {
     maxSize: 1024 * 1024 * 20, // 20MB limit
   });
   const handleCreateProject = async () => {
-    if (!!canCreate) {
+    if (!canCreate) {
       setShowUpgradeModal(true);
       return;
     }
