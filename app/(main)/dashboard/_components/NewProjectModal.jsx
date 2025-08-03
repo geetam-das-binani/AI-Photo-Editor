@@ -13,23 +13,34 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import UpgradeModal from "@/components/UpgradeModal";
 import { api } from "@/convex/_generated/api";
-import { Crown, Loader2, Upload, X } from "lucide-react";
+import { Crown, ImageIcon, Loader2, Upload, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useDropzone } from "react-dropzone";
+import { toast } from "sonner";
 
 const NewProjectModal = ({ isOpen, onClose = () => {} }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [projectTitle, setProjectTitle] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { isFree, canCreateProject } = usePlanAccess();
   const { data: projects } = useConvexQuery(api.projects.getUserProjects);
   const { mutate: createProject } = useConvexMutation(api.projects.create);
   const currentProjectCount = projects?.length || 0;
   const canCreate = canCreateProject(currentProjectCount);
+  const router = useRouter();
   const handleClose = () => {
     onClose();
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setIsUploading(false);
+    setProjectTitle("");
   };
   const onDrop = (acceptedFiles) => {
     const file = acceptedFiles[0];
@@ -48,7 +59,54 @@ const NewProjectModal = ({ isOpen, onClose = () => {} }) => {
     maxFiles: 1,
     maxSize: 1024 * 1024 * 20, // 20MB limit
   });
-  const handleCreateProject = () => {};
+  const handleCreateProject = async () => {
+    if (!!canCreate) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    if (!selectedFile || !projectTitle.trim()) {
+      toast.error("Please select an image and enter a project name");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("fileName", selectedFile.name);
+
+      const uploadResponse = await fetch("/api/imagekit/upload", {
+        method: "POST",
+        body: formData,
+        // headers:{
+        //   "Content-Type": "multipart/form-data",
+        // }
+      });
+      const uploadData = await uploadResponse.json();
+      if (!uploadData.success) {
+        toast.error("Failed to upload image. Please try again later.");
+        return;
+      }
+
+      const projectId = await createProject({
+        title: projectTitle.trim(),
+        originalImageUrl: uploadData.url,
+        currentImageUrl: uploadData.url,
+        thumbnailUrl: uploadData.thumbNailUrl,
+        width: uploadData.width || 800,
+        height: uploadData.height || 60,
+        canvasState: null,
+      });
+      toast.success("Project created successfully");
+      router.push(`/editor/${projectId}`);
+    } catch (error) {
+      toast.error("Failed to upload image. Please try again later.");
+      console.error("Error uploading image:", error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -127,6 +185,35 @@ const NewProjectModal = ({ isOpen, onClose = () => {} }) => {
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
+                <div className="space-y-2">
+                  <Label className={"text-white"} htmlFor="project-title">
+                    Project Title
+                  </Label>
+                  <Input
+                    id="project-title"
+                    value={projectTitle}
+                    type={"text"}
+                    onChange={(e) => setProjectTitle(e.target.value)}
+                    placeholder="Enter project name..."
+                    className={
+                      "bg-slate-700 border-white/20 text-white placeholder-white/50 focus:border-cyan-400 focus:ring-cyan-400"
+                    }
+                  />
+                </div>
+
+                <div className="bg-slate-700/50 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <ImageIcon className="h-5 w-5 text-cyan-400" />
+                    <div>
+                      <p className="text-white font-medium">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-white/70 text-sm">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -157,6 +244,13 @@ const NewProjectModal = ({ isOpen, onClose = () => {} }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        restrictedTool="projects"
+        reason="Free Plan is limited to 3 projects. Upgrade to Pixxel Pro to create unlimited  projects  and access to all AI editing tools."
+      />
     </>
   );
 };

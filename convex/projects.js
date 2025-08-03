@@ -23,7 +23,7 @@ export const create = mutation({
 
       if (projectCount.length >= 3) {
         throw new Error(
-          "Free Plan limited to 3 Projects.Upgrade to Pro for unlimited projects."
+          "Free Plan limited to 3 Projects. Upgrade to Pro for unlimited projects."
         );
       }
     }
