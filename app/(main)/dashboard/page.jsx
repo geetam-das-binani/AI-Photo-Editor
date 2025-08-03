@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import { BarLoader } from "react-spinners";
 import { Button } from "@/components/ui/button";
 import { Plus, Sparkles } from "lucide-react";
+import NewProjectModal from "./_components/NewProjectModal";
 
 const Dashboard = () => {
   const { data: projects, isLoading } = useConvexQuery(
@@ -62,8 +63,8 @@ const Dashboard = () => {
         )}
 
         <NewProjectModal
-        isOpen={showNewProjectModal}
-        onClose={() => setShowNewProjectModal(false)}
+          isOpen={showNewProjectModal}
+          onClose={() => setShowNewProjectModal(false)}
         />
       </div>
     </div>
