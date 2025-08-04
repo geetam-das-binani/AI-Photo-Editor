@@ -2,7 +2,7 @@ import { useConvexMutation } from "@/app/hooks/use-convex-query";
 import { useCanvas } from "@/context/context";
 import { api } from "@/convex/_generated/api";
 import React, { useEffect, useRef, useState } from "react";
-import { Canvas } from "fabric";
+import { Canvas, FabricImage } from "fabric";
 const CanvasEditor = ({ project }) => {
   const canvasRef = useRef();
   const containerRef = useRef();
@@ -29,7 +29,6 @@ const CanvasEditor = ({ project }) => {
     if (!canvasRef.current || !project || canvasEditor) return;
 
     const initializeCanvas = async () => {
-      setLoading(true);
       const viewportScale = calculateViewPortScale();
       const canvas = new Canvas(canvasRef.current, {
         width: project.width,
@@ -62,17 +61,121 @@ const CanvasEditor = ({ project }) => {
         canvas.getContext().scale(scaleFactor, scaleFactor);
       }
 
-      if(project.currentImageUrl || project.originalImageUrl){
+      if (project.currentImageUrl || project.originalImageUrl) {
+      }
+      try {
+        const imageUrl = project.currentImageUrl || project.originalImageUrl;
 
-      }try {
-        
+        const fabricImage = await FabricImage.fromURL(imageUrl, {
+          crossOrigin: "anonymous",
+        });
+        const imgAspectRatio = fabricImage.width / fabricImage.height;
+        const canvasAspectRatio = project.width / project.height;
+        let scaleX, scaleY;
+        if (imgAspectRatio > canvasAspectRatio) {
+          // Image is wider than canvas  - scale based on width
+          scaleX = project.width / fabricImage.width;
+          scaleY = scaleX;
+        } else {
+          // Image is taller than canvas - scale based on height
+          scaleY = project.height / fabricImage.height;
+          scaleX = scaleY;
+        }
+        fabricImage.set({
+          scaleX,
+          scaleY,
+          left: project.width / 2,
+          top: project.height / 2,
+          originX: "center",
+          originY: "center",
+          selectable: true,
+          evented: true,
+        });
+        canvas.add(fabricImage);
+        canvas.centerObject(fabricImage);
       } catch (error) {
-        
+        console.error("Error loading image:", error);
       }
 
+      if (project.canvasState) {
+        try {
+          await canvas.loadFromJSON(project.canvasState);
+          canvas.requestRenderAll();
+        } catch (error) {
+          console.error("Error loading canvas state:", error);
+        }
+      }
 
+      canvas.calcOffset();
+      canvas.requestRenderAll();
+      setCanvasEditor(canvas);
+
+      setTimeout(() => {
+        window.dispatchEvent(new Event("resize"));
+      }, 500);
+      setLoading(false);
+    };
+    initializeCanvas();
+    return () => {
+      if (canvasEditor) {
+        canvasEditor.dispose();
+        setCanvasEditor(null);
+      }
     };
   }, [project]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (!canvasEditor || !project) return;
+      const newScale = calculateViewPortScale();
+      canvasEditor.setDimensions(
+        {
+          width: project.width * newScale,
+          height: project.height * newScale,
+        },
+        {
+          backstoreOnly: false,
+        }
+      );
+      canvasEditor.setZoom(newScale);
+      canvasEditor.calcOffset();
+      canvasEditor.requestRenderAll();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [canvasEditor, project]);
+
+   const saveCanvasState = async () => {
+    if (!canvasEditor || !project) return;
+    try {
+      const canvasJSON = canvasEditor.toJSON();
+
+      await updateProject({
+        projectId: project._id,
+        canvasState: canvasJSON,
+      });
+    } catch (error) {
+      console.error("Error saving canvas state:", error);
+    }
+  };
+  useEffect(() => {
+    if (!canvasEditor) return;
+    let saveTimeout;
+    const handleCanvasChange = () => {
+      clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(saveCanvasState, 2000);
+    };
+
+    canvasEditor.on("object:modified", handleCanvasChange);
+    canvasEditor.on("object:added", handleCanvasChange);
+    canvasEditor.on("object:removed", handleCanvasChange);
+    return () => {
+      canvasEditor.off("object:modified", handleCanvasChange);
+      canvasEditor.off("object:added", handleCanvasChange);
+      canvasEditor.off("object:removed", handleCanvasChange);
+    };
+  }, [canvasEditor]);
+ 
   return (
     <div
       className="relative flex justify-center items-center bg-secondary w-full h-full overflow-hidden"
