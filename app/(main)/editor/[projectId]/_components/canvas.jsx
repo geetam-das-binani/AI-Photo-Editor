@@ -145,7 +145,7 @@ const CanvasEditor = ({ project }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, [canvasEditor, project]);
 
-   const saveCanvasState = async () => {
+  const saveCanvasState = async () => {
     if (!canvasEditor || !project) return;
     try {
       const canvasJSON = canvasEditor.toJSON();
@@ -175,7 +175,22 @@ const CanvasEditor = ({ project }) => {
       canvasEditor.off("object:removed", handleCanvasChange);
     };
   }, [canvasEditor]);
- 
+
+  useEffect(() => {
+    if (!canvasEditor) return;
+    switch (activeTool) {
+      case "crop":
+        canvasEditor.defaultCursor = "crosshair";
+        canvasEditor.hoverCursor = "crosshair";
+        break;
+
+      default:
+        canvasEditor.defaultCursor = "default";
+        canvasEditor.hoverCursor = "move";
+        
+        
+    }
+  }, [activeTool, canvasEditor]);
   return (
     <div
       className="relative flex justify-center items-center bg-secondary w-full h-full overflow-hidden"

@@ -7,6 +7,8 @@ import { useParams } from "next/navigation";
 import React, { useState } from "react";
 import { RingLoader } from "react-spinners";
 import Canvas from "./_components/canvas";
+import TopBar from "./_components/TopBar";
+import Sidebar from "./_components/Sidebar";
 
 const Editor = () => {
   const { projectId } = useParams();
@@ -89,8 +91,10 @@ const Editor = () => {
           )}
 
           {/* top bar  */}
+          <TopBar project={project}/>
           <div className="flex flex-1 overflow-hidden">
             {/* sidebar */}
+            <Sidebar project={project}/>
 
             <div className="flex-1 bg-slate-800">
               {/* canvas  */}
