@@ -166,6 +166,8 @@ const CanvasEditor = ({ project }) => {
       saveTimeout = setTimeout(saveCanvasState, 2000);
     };
 
+    
+    console.log("called")
     canvasEditor.on("object:modified", handleCanvasChange);
     canvasEditor.on("object:added", handleCanvasChange);
     canvasEditor.on("object:removed", handleCanvasChange);

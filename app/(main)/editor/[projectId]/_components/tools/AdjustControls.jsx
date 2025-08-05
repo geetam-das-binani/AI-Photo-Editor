@@ -1,11 +1,11 @@
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from "react";
 import { Slider } from "@/components/ui/slider";
-import { useCanvas } from "@/context/context";
-import { filters } from "fabric";
+import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
+import { filters } from "fabric";
+import { useCanvas } from "@/context/context";
 
-import React, { useState } from "react";
-
+// Filter configurations
 const FILTER_CONFIGS = [
   {
     key: "brightness",
@@ -75,50 +75,131 @@ const FILTER_CONFIGS = [
     suffix: "°",
   },
 ];
+
+// Default values object
 const DEFAULT_VALUES = FILTER_CONFIGS.reduce((acc, config) => {
   acc[config.key] = config.defaultValue;
   return acc;
 }, {});
 
-const AdjustControls = () => {
-  const { canvasEditor } = useCanvas();
+export default function AdjustControls() {
   const [filterValues, setFilterValues] = useState(DEFAULT_VALUES);
   const [isApplying, setIsApplying] = useState(false);
+  const { canvasEditor } = useCanvas();
 
   const getActiveImage = () => {
+    if (!canvasEditor) return null;
     const activeObject = canvasEditor.getActiveObject();
-    if (activeObject && activeObject.type === "image") {
-      return activeObject;
-    }
-    return null;
-  };
-  const applyFilters = async (newValues) => {
-    const imageObject = getActiveImage();
-    if (isApplying || !imageObject) return;
+    if (activeObject && activeObject.type === "image") return activeObject;
+    const objects = canvasEditor.getObjects();
+    return objects.find((obj) => obj.type === "image") || null;
   };
 
-  const resetFilters = () => {
-    setFilterValues(DEFAULT_VALUES);
+  const applyFilters = async (newValues) => {
+    const imageObject = getActiveImage();
+    if (!imageObject || isApplying) return;
+
+    setIsApplying(true);
+
+    try {
+      const filtersToApply = [];
+
+      FILTER_CONFIGS.forEach((config) => {
+        const value = newValues[config.key];
+        if (value !== config.defaultValue) {
+          const transformedValue = config.transform(value);
+          filtersToApply.push(
+            new config.filterClass({
+              [config.valueKey]: transformedValue,
+            })
+          );
+        }
+      });
+
+      imageObject.filters = filtersToApply;
+
+      await new Promise((resolve) => {
+        imageObject.applyFilters();
+        canvasEditor.requestRenderAll();
+        setTimeout(resolve, 50);
+      });
+    } catch (error) {
+      console.error("Error applying filters:", error);
+    } finally {
+      setIsApplying(false);
+    }
   };
-  const handleValueChange = (key, value) => {
+
+  const handleValueChange = (filterKey, value) => {
     const newValues = {
       ...filterValues,
-      [key]: Array.isArray(value) ? value[0] : value,
+      [filterKey]: Array.isArray(value) ? value[0] : value,
     };
     setFilterValues(newValues);
     applyFilters(newValues);
   };
 
-  if (!canvasEditor)
+  const resetFilters = () => {
+    setFilterValues(DEFAULT_VALUES);
+    applyFilters(DEFAULT_VALUES);
+  };
+
+  const extractFilterValues = (imageObject) => {
+    if (!imageObject?.filters?.length) return DEFAULT_VALUES;
+
+    const extractedValues = { ...DEFAULT_VALUES };
+
+    imageObject.filters.forEach((filter) => {
+      const config = FILTER_CONFIGS.find(
+        (c) => c.filterClass.name === filter.constructor.name
+      );
+      if (config) {
+        const filterValue = filter[config.valueKey];
+        if (config.key === "hue") {
+          extractedValues[config.key] = Math.round(
+            filterValue * (180 / Math.PI)
+          );
+        } else {
+          extractedValues[config.key] = Math.round(filterValue * 100);
+        }
+      }
+    });
+
+    return extractedValues;
+  };
+
+  useEffect(() => {
+    const imageObject = getActiveImage();
+    if (imageObject?.filters) {
+      const existingValues = extractFilterValues(imageObject);
+      setFilterValues(existingValues);
+    }
+  }, [canvasEditor]);
+
+  if (!canvasEditor) {
     return (
       <div className="p-4">
         <p className="text-white/70 text-sm">
-          Load an image to start adjusting.
+          Load an image to start adjusting
         </p>
       </div>
     );
+  }
+
+  const activeImage = getActiveImage();
+  if (!activeImage) {
+    return (
+      <div className="p-4">
+        <p className="text-white/70 text-sm">
+          Select an image to adjust filters
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Reset Button */}
       <div className="flex justify-between items-center">
         <h3 className="text-sm font-medium text-white">Image Adjustments</h3>
         <Button
@@ -132,6 +213,7 @@ const AdjustControls = () => {
         </Button>
       </div>
 
+      {/* Filter Controls */}
       {FILTER_CONFIGS.map((config) => (
         <div key={config.key} className="space-y-2">
           <div className="flex justify-between items-center">
@@ -152,6 +234,7 @@ const AdjustControls = () => {
         </div>
       ))}
 
+      {/* Info */}
       <div className="mt-6 p-3 bg-slate-700/50 rounded-lg">
         <p className="text-xs text-white/70">
           Adjustments are applied in real-time. Use the Reset button to restore
@@ -159,18 +242,15 @@ const AdjustControls = () => {
         </p>
       </div>
 
-      {isApplying ? (
+      {/* Processing Indicator */}
+      {isApplying && (
         <div className="flex items-center justify-center py-2">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-400"></div>
           <span className="ml-2 text-xs text-white/70">
             Applying filters...
           </span>
         </div>
-      ) : (
-        ""
       )}
     </div>
   );
-};
-
-export default AdjustControls;
+}
