@@ -121,6 +121,9 @@ export default function AdjustControls() {
       await new Promise((resolve) => {
         imageObject.applyFilters();
         canvasEditor.requestRenderAll();
+
+        canvasEditor.fire("object:modified", { target: "image" });
+
         setTimeout(resolve, 50);
       });
     } catch (error) {

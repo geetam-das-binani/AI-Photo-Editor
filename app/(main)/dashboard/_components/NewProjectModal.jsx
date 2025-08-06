@@ -95,7 +95,7 @@ const NewProjectModal = ({ isOpen, onClose = () => {} }) => {
         currentImageUrl: uploadData.url,
         thumbnailUrl: uploadData.thumbNailUrl,
         width: uploadData.width || 800,
-        height: uploadData.height || 60,
+        height: uploadData.height || 600,
         canvasState: null,
       });
       toast.success("Project created successfully");
