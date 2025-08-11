@@ -86,17 +86,17 @@ export default Sidebar;
 function renderToolContent(activeTool, project) {
   switch (activeTool) {
     case "crop":
-      return <CropContent />;
+      return <CropContent  project={project} />;
     case "resize":
       return <ResizeControls project={project} />;
     case "adjust":
-      return <AdjustControls />;
+      return <AdjustControls project={project} />;
     case "background":
       return <BackgroundControls project={project} />;
     case "ai_extender":
       return <AIExtenderControls project={project} />;
     case "text":
-      return <TextControls />;
+      return <TextControls project={project} />;
     case "ai_edit":
       return <AIEdit project={project} />;
     default:

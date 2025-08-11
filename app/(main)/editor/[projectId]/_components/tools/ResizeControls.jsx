@@ -5,6 +5,7 @@ import { Expand, Lock, Unlock, Monitor } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 const ASPECT_RATIOS = [
   { name: "Instagram Story", ratio: [9, 16], label: "9:16" },
@@ -26,7 +27,100 @@ const ResizeControls = ({ project }) => {
     data,
     isLoading,
   } = useConvexMutation(api.projects.updateProject);
-  
+
+  useEffect(() => {
+    if (!isLoading && data)
+      setTimeout(() => {
+        window.dispatchEvent(new Event("resize"));
+      }, 500);
+  }, [isLoading, data]);
+
+  const handleWidthChange = (value) => {
+    const width = parseInt(value) || 0;
+    setNewWidth(width);
+    if (lockAspectRatio && project) {
+      const ratio = project.height / project.width;
+      const newHeight = Math.round(width * ratio);
+      setNewHeight(newHeight);
+    }
+    setSelectedPreset(null);
+  };
+  const handleHeightChange = (value) => {
+    const height = parseInt(value) || 0;
+    setNewHeight(height);
+    if (lockAspectRatio && project) {
+      const ratio = project.width / project.height;
+      const newWidth = Math.round(height * ratio);
+      setNewWidth(newWidth);
+    }
+    setSelectedPreset(null);
+  };
+
+  function calculateAspectRatioDimensions(ratio) {
+    if (!project) return { width: project.width, height: project.height };
+
+    const [ratioWidth, ratioHeight] = ratio;
+    const originalArea = project.width * project.height;
+    const aspectRatio = ratioWidth / ratioHeight;
+    const newHeight = Math.sqrt(originalArea / aspectRatio);
+    const newWidth = newHeight * aspectRatio;
+    return { width: Math.round(newWidth), height: Math.round(newHeight) };
+  }
+
+  const applyAspectRatio = (ratio) => {
+    const { width, height } = calculateAspectRatioDimensions(ratio.ratio);
+    setNewWidth(width);
+    setNewHeight(height);
+    setSelectedPreset(ratio.name);
+  };
+  function calculateViewPortScale() {
+    const container = canvasEditor.getElement().parentNode;
+    if (!container) return 1;
+    const containerWidth = container.clientWidth - 40;
+    const containerHeight = container.clientHeight - 40;
+
+    const scaleX = containerWidth / newWidth;
+    const scaleY = containerHeight / newHeight;
+    const scale = Math.min(scaleX, scaleY, 1);
+    return scale;
+  }
+
+  const handleApplyResize = async () => {
+    if (
+      !canvasEditor ||
+      !project ||
+      (newWidth === project.width && newHeight === project.height)
+    )
+      return;
+    setProcessingMessage("Resizing canvas...");
+    try {
+      canvasEditor.setWidth(newWidth);
+      canvasEditor.setHeight(newHeight);
+      const viewPortScale = calculateViewPortScale();
+      canvasEditor.setDimensions(
+        {
+          width: newWidth * viewPortScale,
+          height: newHeight * viewPortScale,
+        },
+        { backstoreOnly: false }
+      );
+      canvasEditor.setZoom(viewPortScale);
+      canvasEditor.calcOffset();
+      canvasEditor.requestRenderAll();
+
+      await updateProject({
+        projectId: project._id,
+        width: newWidth,
+        height: newHeight,
+        canvasState: canvasEditor.toJSON(),
+      });
+    } catch (error) {
+      console.error("Error applying resize:", error);
+      toast.error("Failed to apply resize");
+    } finally {
+      setProcessingMessage(null);
+    }
+  };
   if (!canvasEditor || !project) {
     return (
       <div className="p-4">
@@ -38,20 +132,20 @@ const ResizeControls = ({ project }) => {
   const hasChanges = newWidth !== project.width || newHeight !== project.height;
   return (
     <div className="space-y-6">
-      {/* <div className="bg-slate-700/30 rounded-lg p-3">
+      <div className="bg-slate-700/30 rounded-lg p-3">
         <h4 className="text-sm font-medium text-white mb-2">Current Size</h4>
         <div className="text-xs text-white/70">
           {project.width} × {project.height} pixels
         </div>
-      </div> */}
+      </div>
 
-      {/* <div className="space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-white">Custom Size</h3>
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setLockAspectRatio(!lockAspectRatio)}
+            onClick={() => setLockAspectRatio((prev) => !prev)}
             className="text-white/70 hover:text-white p-1"
           >
             {lockAspectRatio ? (
@@ -61,42 +155,40 @@ const ResizeControls = ({ project }) => {
             )}
           </Button>
         </div>
-        </div> */}
+      </div>
 
-      {/* <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-white/70 mb-1 block">Width</label>
-            <Input
-              type="number"
-              value={newWidth}
-              onChange={(e) => handleWidthChange(e.target.value)}
-              min="100"
-              max="5000"
-              className="bg-slate-700 border-white/20 text-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-white/70 mb-1 block">Height</label>
-            <Input
-              type="number"
-              value={newHeight}
-              onChange={(e) => handleHeightChange(e.target.value)}
-              min="100"
-              max="5000"
-              className="bg-slate-700 border-white/20 text-white"
-            />
-          </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-white/70 mb-1 block">Width</label>
+          <Input
+            type="number"
+            value={newWidth}
+            onChange={(e) => handleWidthChange(e.target.value)}
+            min="100"
+            max="5000"
+            className="bg-slate-700 border-white/20 text-white"
+          />
         </div>
-
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-white/70">
-            {lockAspectRatio ? "Aspect ratio locked" : "Free resize"}
-          </span>
+        <div>
+          <label className="text-xs text-white/70 mb-1 block">Height</label>
+          <Input
+            type="number"
+            value={newHeight}
+            onChange={(e) => handleHeightChange(e.target.value)}
+            min="100"
+            max="5000"
+            className="bg-slate-700 border-white/20 text-white"
+          />
         </div>
-      </div> */}
+      </div>
 
-      {/* 
-  <div className="space-y-3">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-white/70">
+          {lockAspectRatio ? "Aspect ratio locked" : "Free resize"}
+        </span>
+      </div>
+
+      <div className="space-y-3">
         <h3 className="text-sm font-medium text-white">Aspect Ratios</h3>
         <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
           {ASPECT_RATIOS.map((aspectRatio) => {
@@ -129,9 +221,9 @@ const ResizeControls = ({ project }) => {
             );
           })}
         </div>
-      </div> */}
+      </div>
 
-      {/* {hasChanges && (
+      {hasChanges && (
         <div className="bg-slate-700/30 rounded-lg p-3">
           <h4 className="text-sm font-medium text-white mb-2">
             New Size Preview
@@ -150,9 +242,9 @@ const ResizeControls = ({ project }) => {
             </div>
           </div>
         </div>
-      )} */}
+      )}
 
-      {/* <Button
+      <Button
         onClick={handleApplyResize}
         disabled={!hasChanges || processingMessage}
         className="w-full"
@@ -160,7 +252,7 @@ const ResizeControls = ({ project }) => {
       >
         <Expand className="h-4 w-4 mr-2" />
         Apply Resize
-      </Button> */}
+      </Button>
 
       <div className="bg-slate-700/30 rounded-lg p-3">
         <p className="text-xs text-white/70">
