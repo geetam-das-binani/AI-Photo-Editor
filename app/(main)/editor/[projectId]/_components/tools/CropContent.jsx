@@ -12,6 +12,9 @@ import {
 import { useCanvas } from "@/context/context";
 import { FabricImage, Rect } from "fabric";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+
+
 
 const ASPECT_RATIOS = [
   { label: "Freeform", value: null, icon: Maximize },
@@ -25,7 +28,7 @@ const ASPECT_RATIOS = [
   { label: "Portrait", value: 4 / 5, icon: RectangleVertical, ratio: "4:5" },
   { label: "Story", value: 9 / 16, icon: Smartphone, ratio: "9:16" },
 ];
-const CropContent = () => {
+const CropContent = ({ project }) => {
   const { canvasEditor, activeTool } = useCanvas();
 
   const [selectedImage, setSelectedImage] = useState(null);
@@ -251,12 +254,12 @@ const CropContent = () => {
       canvasEditor.add(croppedImage);
       canvasEditor.setActiveObject(croppedImage);
       canvasEditor.requestRenderAll();
-
+     
       // Exit crop mode
       exitCropMode();
     } catch (error) {
       console.error("Error applying crop:", error);
-      alert("Failed to apply crop. Please try again.");
+      toast.error("Failed to apply crop. Please try again.");
       exitCropMode();
     }
   };
