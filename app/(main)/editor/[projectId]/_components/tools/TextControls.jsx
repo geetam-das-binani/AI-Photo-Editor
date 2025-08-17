@@ -1,6 +1,6 @@
 import React from 'react'
 
-const TextControls = () => {
+const TextControls = ({project}) => {
   return (
     <div>TextControls</div>
   )

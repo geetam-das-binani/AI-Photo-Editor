@@ -1,9 +1,18 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCanvas } from "@/context/context";
 import { FabricImage } from "fabric";
-import { ImageIcon, Palette, Trash2 } from "lucide-react";
+import {
+  Download,
+  ImageIcon,
+  Loader2,
+  Palette,
+  Search,
+  Trash2,
+} from "lucide-react";
 import React, { useState } from "react";
+import { HexColorPicker } from "react-colorful";
 import { toast } from "sonner";
 
 const UNSPLASH_API_URL = "https://api.unsplash.com";
@@ -12,7 +21,7 @@ const BackgroundControls = ({ project }) => {
   const { canvasEditor, processingMessage, setProcessingMessage } = useCanvas();
   const [backgroundColor, setBackgroundColor] = useState("#ffffff");
   const [searchQuery, setSearchQuery] = useState("");
-  const [unsplashImages, setUnsplashImages] = useState(null);
+  const [unsplashImages, setUnsplashImages] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState(null);
 
@@ -61,11 +70,95 @@ const BackgroundControls = ({ project }) => {
     }
   };
 
-  const handleColorBackground=()=>{
+  const handleColorBackground = () => {
+    if (!canvasEditor) return;
+    canvasEditor.backgroundImage = null;
+    canvasEditor.backgroundColor = backgroundColor;
+    canvasEditor.requestRenderAll();
+  };
+  const searchUnsplashImages = async () => {
+    if (!UNSPLASH_ACCESS_KEY) {
+      toast.error("Unsplash API key not configured");
+      return;
+    }
+    if (!searchQuery.trim()) {
+      toast.error("Please enter a search term");
+      return;
+    }
 
-  }
+    setIsSearching(true);
+    setUnsplashImages(null);
+    setSelectedImageId(null);
+
+    try {
+      const response = await fetch(
+        `${UNSPLASH_API_URL}/search/photos?query=${encodeURIComponent(searchQuery)}&per_page=12`,
+        {
+          headers: {
+            Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
+          },
+        }
+      );
+      if (!response.ok) throw new Error("Failed to fetch images");
+
+      const data = await response.json();
+      setUnsplashImages(data.results || []);
+    } catch (error) {
+      toast.error("Error fetching images from Unsplash");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+  const handleSearchKeyPress = (e) => {
+    if (e.key === "Enter") {
+      searchUnsplashImages();
+    }
+  };
+  const handleImageBackground = async (url, imageId) => {
+    if (!canvasEditor) return;
+    setSelectedImageId(imageId);
+    try {
+      if (UNSPLASH_ACCESS_KEY) {
+        fetch(`${UNSPLASH_API_URL}/photos/${imageId}/download`, {
+          headers: {
+            Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
+          },
+        }).catch(() => {});
+      }
+      const fabricImage = await FabricImage.fromURL(url, {
+        crossOrigin: "anonymous",
+      });
+      const canvasWidth = project.width;
+      const canvasHeight = project.height;
+      const scaleX = canvasWidth / fabricImage.width;
+      const scaleY = canvasHeight / fabricImage.height;
+      const scale = Math.max(scaleX, scaleY);
+
+      fabricImage.set({
+        scaleX: scale,
+        scaleY: scale,
+        originX: "center",
+        originY: "center",
+        left: canvasWidth / 2,
+        top: canvasHeight / 2,
+      });
+      canvasEditor.backgroundImage = fabricImage;
+      canvasEditor.requestRenderAll();
+    } catch (error) {
+      toast.error("Error loading background image");
+    } finally {
+      setSelectedImageId(null);
+    }
+  };
+
+  const handleRemoveBackground = () => {
+    if (!canvasEditor) return;
+    canvasEditor.backgroundImage = null;
+    canvasEditor.backgroundColor = null;
+    canvasEditor.requestRenderAll();
+  };
   return (
-     <div className="space-y-6 relative h-full">
+    <div className="space-y-6 relative h-full">
       {/* AI Background Removal Button - Outside of tabs */}
       <div className="space-y-4 pb-4 border-b border-white/10">
         <div>
@@ -78,7 +171,7 @@ const BackgroundControls = ({ project }) => {
         </div>
 
         <Button
-          onClick={handleBackgroundRemoval}
+          onClick={handleBackgroundRemove}
           disabled={processingMessage || !getMainImage()}
           className="w-full"
           variant="primary"
@@ -272,7 +365,7 @@ const BackgroundControls = ({ project }) => {
       {/* Clear Canvas Background Button - At the bottom */}
       <div className="pt-4 border-t border-white/10 bottom-0 w-full">
         <Button
-          onClick={handleBackgroundRemove}
+          onClick={handleRemoveBackground}
           className="w-full"
           variant="outline"
         >
