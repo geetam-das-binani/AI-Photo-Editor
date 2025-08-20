@@ -81,6 +81,9 @@ const AIExtenderControls = ({ project }) => {
   };
 
   const { width: newWidth, height: newHeight } = calculateDimensions();
+  const selectDirection = (direction) => {
+    setSelectedDirection((prev) => (prev === direction ? null : direction));
+  };
   return (
     <div className="space-y-6">
       {/* Direction Selection */}
@@ -95,7 +98,7 @@ const AIExtenderControls = ({ project }) => {
           {DIRECTIONS.map(({ key, label, icon: Icon }) => (
             <Button
               key={key}
-              // onClick={() => selectDirection(key)}
+              onClick={() => selectDirection(key)}
               variant={selectedDirection === key ? "default" : "outline"}
               className={`flex items-center gap-2 ${
                 selectedDirection === key ? "bg-cyan-500 hover:bg-cyan-600" : ""
