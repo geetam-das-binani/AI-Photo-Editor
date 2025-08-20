@@ -189,6 +189,23 @@ const CanvasEditor = ({ project }) => {
         canvasEditor.hoverCursor = "move";
     }
   }, [activeTool, canvasEditor]);
+
+  useEffect(() => {
+    if (!onToolChange || !canvasEditor) return;
+    const handleSelection = (e) => {
+      const selectedObject = e.selected?.[0];
+      if (selectedObject && selectedObject.type === "i-text") {
+        onToolChange("text");
+      }
+    };
+    canvasEditor.on("selection:created", handleSelection);
+    canvasEditor.on("selection:updated", handleSelection);
+
+    return () => {
+      canvasEditor.off("selection:created", handleSelection);
+      canvasEditor.off("selection:updated", handleSelection);
+    };
+  }, [canvasEditor, onToolChange]);
   return (
     <div
       className="relative flex justify-center items-center bg-secondary w-full h-full overflow-hidden"
