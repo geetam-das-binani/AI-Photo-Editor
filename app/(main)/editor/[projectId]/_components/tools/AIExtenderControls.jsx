@@ -6,6 +6,7 @@ import { FabricImage } from "fabric";
 import { useConvexMutation } from "@/app/hooks/use-convex-query";
 import { api } from "@/convex/_generated/api";
 import { useCanvas } from "@/context/context";
+import { toast } from "sonner";
 const DIRECTIONS = [
   { key: "top", label: "Top", icon: ArrowUp },
   { key: "bottom", label: "Bottom", icon: ArrowDown },
@@ -43,8 +44,8 @@ const AIExtenderControls = ({ project }) => {
   if (!canvasEditor) {
     return <div className="p-4 text-white/70 text-sm">Canvas not ready</div>;
   }
-  const mainImage = getMainImage();
-  if (!mainImage) {
+  const currentImage = getMainImage();
+  if (!currentImage) {
     return (
       <div className="p-4 text-white/70 text-sm">Please add an image first</div>
     );
@@ -84,6 +85,68 @@ const AIExtenderControls = ({ project }) => {
   const selectDirection = (direction) => {
     setSelectedDirection((prev) => (prev === direction ? null : direction));
   };
+  const applyExtension = async () => {
+    const image = getMainImage();
+    if (!image || !selectedDirection) return;
+    setProcessingMessage("Extending image with AI..");
+    try {
+      const currentImageUrl = getImageSrc(image);
+      const extendedUrl = buildExtensionUrl(currentImageUrl);
+      const extendedImage = await FabricImage.fromURL(extendedUrl, {
+        crossOrigin: "anonymous",
+      });
+
+      const scale = Math.min(
+        project.width / extendedImage.width,
+        project.height / extendedImage.height,
+        1
+      );
+
+      extendedImage.set({
+        left: project.width / 2,
+        top: project.height / 2,
+        scaleX: scale,
+        scaleY: scale,
+        originX: "center",
+        originY: "center",
+        selectable: true,
+        evented: true,
+      });
+
+      canvasEditor.remove(image);
+      canvasEditor.add(extendedImage);
+      canvasEditor.setActiveObject(extendedImage);
+      canvasEditor.requestRenderAll();
+      await updateProject({
+        projectId: project._id,
+        currentImageUrl: extendedUrl,
+        canvasState: canvasEditor.toJSON(),
+      });
+      toast.success("Image extended successfully");
+      setSelectedDirection(null);
+    } catch (error) {
+      console.error("Error applying AI extension:", error);
+      toast.error("Error applying AI extender:");
+    } finally {
+      setProcessingMessage(null);
+    }
+  };
+
+  function buildExtensionUrl(imageUrl) {
+    const baseUrl = imageUrl.split("?")[0];
+
+    const { width: newWidth, height: newHeight } = calculateDimensions();
+    const transformations = [
+      "bg-genfill",
+      `w-${newWidth}`,
+      `h-${newHeight}`,
+      "cm-pad_resize", // dont crop  add space instead
+    ];
+    const focus = FOCUS_MAP[selectDirection];
+    if (focus) transformations.push(focus);
+
+    return `${baseUrl}?tr=${transformations.join(",")}`;
+  }
   return (
     <div className="space-y-6">
       {/* Direction Selection */}
@@ -129,7 +192,7 @@ const AIExtenderControls = ({ project }) => {
       </div>
 
       {/* Dimensions Preview */}
-      {selectedDirection && (
+      {selectedDirection ? (
         <div className="bg-slate-700/30 rounded-lg p-3">
           <h4 className="text-sm font-medium text-white mb-2">
             Extension Preview
@@ -152,11 +215,13 @@ const AIExtenderControls = ({ project }) => {
             </div>
           </div>
         </div>
+      ) : (
+        ""
       )}
 
       {/* Apply Button */}
       <Button
-        // onClick={applyExtension}
+        onClick={applyExtension}
         disabled={!selectedDirection}
         className="w-full"
         variant="primary"
