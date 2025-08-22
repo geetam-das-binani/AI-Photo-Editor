@@ -15,6 +15,7 @@ import AdjustControls from "./tools/AdjustControls";
 import BackgroundControls from "./tools/BackgroundControls";
 import AIExtenderControls from "./tools/AIExtenderControls";
 import TextControls from "./tools/TextControls";
+import AIEdit from "./tools/AIEdit";
 
 const TOOL_CONFIGS = {
   resize: {
