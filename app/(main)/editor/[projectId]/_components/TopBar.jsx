@@ -36,7 +36,10 @@ import { api } from "@/convex/_generated/api";
 
 import { toast } from "sonner";
 import UpgradeModal from "@/components/UpgradeModal";
-import { useConvexMutation,useConvexQuery } from "@/app/hooks/use-convex-query";
+import {
+  useConvexMutation,
+  useConvexQuery,
+} from "@/app/hooks/use-convex-query";
 import { usePlanAccess } from "@/app/hooks/usePlanAccess";
 
 const TOOLS = [
@@ -249,7 +252,6 @@ export default function TopBar({ project }) {
     router.push("/dashboard");
   };
 
-  
   const handleToolChange = (toolId) => {
     if (!hasAccess(toolId)) {
       setRestrictedTool(toolId);
@@ -533,7 +535,7 @@ export default function TopBar({ project }) {
                   <div className="px-3 py-2 text-xs text-white/50">
                     Free Plan: {user?.exportsThisMonth || 0}/10 exports this
                     month
-                    {(user?.exportsThisMonth || 0) >= 10 && (
+                    {(user?.exportsThisMonth || 0) >= 20 && (
                       <div className="text-amber-400 mt-1">
                         Upgrade to Pro for unlimited exports
                       </div>
