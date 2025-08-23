@@ -58,7 +58,7 @@ const AIExtenderControls = ({ project }) => {
           Extension Not Available
         </h3>
         <p className="text-amber-300/80 text-sm">
-          AI Extension cannot be used on images with removed backgrounds.Use
+          AI Extension cannot be used on images with removed backgrounds or applied backgrounds.Use
           extension first, then remove background
         </p>
       </div>

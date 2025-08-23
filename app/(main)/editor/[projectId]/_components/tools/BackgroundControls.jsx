@@ -8,6 +8,7 @@ import {
   ImageIcon,
   Loader2,
   Palette,
+  Pen,
   Search,
   Trash2,
 } from "lucide-react";
@@ -23,6 +24,8 @@ const BackgroundControls = ({ project }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [unsplashImages, setUnsplashImages] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  // const [isSearchingPrompt, setIsSearchingPrompt] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState("");
   const [selectedImageId, setSelectedImageId] = useState(null);
 
   const getMainImage = () => {
@@ -157,6 +160,51 @@ const BackgroundControls = ({ project }) => {
     canvasEditor.backgroundColor = null;
     canvasEditor.requestRenderAll();
   };
+
+  const handleCustomPrompt = async () => {
+    if (!canvasEditor) return;
+    const mainImage = getMainImage();
+    if (!mainImage) return;
+    try {
+      setProcessingMessage("Generating Background Image with AI..");
+      const currentImageUrl =
+        project.currentImageUrl || project.originalImageUrl;
+      const bgChangeUrl = currentImageUrl.includes("ik.imagekit.io")
+        ? `${currentImageUrl.split("?")[0]}?tr=e-changebg-prompt-${customPrompt}`
+        : currentImageUrl;
+      const processedImage = await FabricImage.fromURL(bgChangeUrl, {
+        crossOrigin: "anonymous",
+      });
+      console.log(processedImage, "processedImage");
+
+      const currentProps = {
+        left: mainImage.left,
+        top: mainImage.top,
+        scaleX: mainImage.scaleX,
+        scaleY: mainImage.scaleY,
+        angle: mainImage.angle,
+        originX: mainImage.originX,
+        originY: mainImage.originY,
+      };
+
+      canvasEditor.remove(mainImage);
+      processedImage.set(currentProps);
+      canvasEditor.add(processedImage);
+      processedImage.setCoords();
+      canvasEditor.setActiveObject(processedImage);
+      canvasEditor.calcOffset();
+      canvasEditor.requestRenderAll();
+    } catch (error) {
+    } finally {
+      setProcessingMessage(null);
+    }
+  };
+
+  const handlePromptKeyPress = (e) => {
+    if (e.key === "Enter") {
+      handleCustomPrompt();
+    }
+  };
   return (
     <div className="space-y-6 relative h-full">
       {/* AI Background Removal Button - Outside of tabs */}
@@ -189,7 +237,7 @@ const BackgroundControls = ({ project }) => {
 
       {/* Shadcn UI Tabs */}
       <Tabs defaultValue="color" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-slate-700/50">
+        <TabsList className="grid w-full grid-cols-3 bg-slate-700/50">
           <TabsTrigger
             value="color"
             className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white"
@@ -203,6 +251,13 @@ const BackgroundControls = ({ project }) => {
           >
             <ImageIcon className="h-4 w-4 mr-2" />
             Image
+          </TabsTrigger>
+          <TabsTrigger
+            value="prompt"
+            className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white"
+          >
+            <Pen className="h-4 w-4 mr-2" />
+            Prompt
           </TabsTrigger>
         </TabsList>
 
@@ -325,6 +380,70 @@ const BackgroundControls = ({ project }) => {
               </div>
             </div>
           )}
+
+          {/* Empty state */}
+          {!isSearching && unsplashImages?.length === 0 && searchQuery && (
+            <div className="text-center py-8">
+              <ImageIcon className="h-12 w-12 text-white/30 mx-auto mb-3" />
+              <p className="text-white/70 text-sm">
+                No images found for "{searchQuery}"
+              </p>
+              <p className="text-white/50 text-xs">
+                Try a different search term
+              </p>
+            </div>
+          )}
+
+          {/* Initial state */}
+          {!searchQuery && unsplashImages?.length === 0 && (
+            <div className="text-center py-8">
+              <Search className="h-12 w-12 text-white/30 mx-auto mb-3" />
+              <p className="text-white/70 text-sm">
+                Search for background images
+              </p>
+              <p className="text-white/50 text-xs">Powered by Unsplash</p>
+            </div>
+          )}
+
+          {/* API key warning */}
+          {!UNSPLASH_ACCESS_KEY && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+              <p className="text-amber-400 text-xs">
+                Unsplash API key not configured. Please add
+                NEXT_PUBLIC_UNSPLASH_ACCESS_KEY to your environment variables.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="prompt" className="space-y-4 mt-6">
+          <div>
+            <h3 className="text-sm font-medium text-white mb-2">
+              Change Image Background With Prompt
+            </h3>
+            <p className="text-xs text-white/70 mb-4">
+              Enter custom prompts to generate high-quality image background
+              with AI.
+            </p>
+          </div>
+
+          {/* Search Bar */}
+          <div className="flex gap-2">
+            <Input
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              onKeyPress={handlePromptKeyPress}
+              placeholder="Search for backgrounds..."
+              className="flex-1 bg-slate-700 border-white/20 text-white"
+            />
+            <Button
+              onClick={handleCustomPrompt}
+              disabled={!customPrompt.trim()}
+              variant="primary"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </div>
 
           {/* Empty state */}
           {!isSearching && unsplashImages?.length === 0 && searchQuery && (
